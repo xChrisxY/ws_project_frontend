@@ -1,11 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
+import { UserContext } from "../context/UserContext";
+import toast, { Toaster} from "react-hot-toast"
 import Message from "./Message";
+import Swal from "sweetalert2";
 
-const Input = () => {
+const Input = ({id}) => {
+
+      const { username, userId, messages, setMessages, notificacion, setNotificacion, users } = useContext(UserContext);
 
       const [InputMessage, setInputMessage] = useState("");
       const [websocket, setWebsocket] = useState(null);
-      const [messages, setMessages] = useState([]);
+      const [mensajes, setMensajes] = useState([]);
 
       const obtenerFecha = () => {
 
@@ -17,6 +22,7 @@ const Input = () => {
             const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
             for (let index = 1; index <= meses.length; index++) {
+
                   if (index === mes) {
                         mes = meses[index - 1];
                   }
@@ -44,20 +50,27 @@ const Input = () => {
             socket.onopen = event => {
 
                   console.log('Cliente conectado: ' + event);
+                  // mandaremos el userId al backend para que notifique a todos que se a conectado
+                  socket.send(JSON.stringify({ type : 'userConnected', id : userId}));
 
             }
 
             socket.onmessage = message => {
 
-                  const mensaje = JSON.parse(message.data);
-                  console.log('Mensaje recibido: ' + mensaje.mensaje);
-                  setMessages(prevMessages => [...prevMessages, mensaje]);
+                  const data = JSON.parse(message.data);
+                  // validaremos si el mensaje es para otros
+                  if ((userId === data.recipientId && id === data.authorId) || (id === data.recipientId && userId === data.authorId)){
+
+                        setMessages(prevMessages => [...prevMessages, data]);
+
+                  }
 
             }
 
             socket.onclose = event => {
 
                   console.log('Cliente desconectado ' + event);
+                  //socket.send(JSON.stringify({ type : 'UserDisconnected', id : userId}));
 
             }
 
@@ -69,40 +82,76 @@ const Input = () => {
 
             }
 
-      }, []);
+      }, [id, userId, setMessages]);
 
       const sendMessage = () => {
 
             if (InputMessage.trim() !== '') {
 
                   const mensaje = {
-                        usuario: 'Chris',
-                        mensaje: InputMessage,
-                        fecha: obtenerFecha(),
-                        hora: obtenerHora()
+                        authorId : userId,
+                        recipientId : id,
+                        message: InputMessage,
+                        usuario: username,
+                        date: obtenerFecha(),
+                        hour: obtenerHora()
                   }
+
+                  console.log(mensaje)
 
                   websocket.send(JSON.stringify(mensaje));
                   setInputMessage('');
+                  
             }
 
       };
+
+      useEffect(() => {
+
+            if (notificacion) {
+
+                  if (userId === notificacion.recipientId) {
+
+                        console.log('Hemos recibido un mensaje');
+
+                        const mensajero = users.filter(user => user.id === parseInt(notificacion.authorId));
+
+                        Swal.fire(`${mensajero[0].username}`, `${notificacion.message}`, 'info');
+
+                        //return toast(`Has recibido una nueva notificación de ${notificacion.authorId} ==> ${notificacion.message}`);
+      
+                  }
+
+            }
+
+      }, [notificacion, setNotificacion]);
 
       return (
 
             <div>
 
-                  <div className="py-2 px-">
+                  <Toaster />
 
-                        {messages.map((message, index) => {
+                  <div className="py-3 px-8">
 
-                              const { usuario, mensaje, hora } = message;
+                        {messages.map((messages, index) => {
+
+                              const { message, hour, authorId } = messages;
+
+                              // validar si soy yo el autor del mensaje
+                              let position = 'start'
+                              let color = 'bg-gray-300'
+                              if (userId !== authorId) {
+
+                                    position = 'end'
+                                    color = 'bg-blue-300'
+                              }
 
                               return (
 
-                                    <div key={index}>
+                                    <div key={index} className={`flex justify-${position}`}>
 
-                                          <Message usuario={usuario} message={mensaje} hora={hora} />
+                                          <Message message={message} hora={hour} bgColor={color}/>
 
                                     </div>
                               )

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState, useContext } from "react";
+import { UserContext } from "../context/UserContext";
 import axios from "axios";
 import { Navigate } from "react-router-dom";
 import Swal from "sweetalert2"
@@ -6,10 +7,30 @@ import { Link } from "react-router-dom";
 
 const Register = action => {
 
+      const { setUserId, setToken, chatId } = useContext(UserContext);
+
+      console.log(chatId)
+
       const [username, setUsername] = useState("");
       const [password, setPassword] = useState("");
       const [autenticado, setAutenticado] = useState(false)
-      const APIREST_URL = import.meta.env.VITE_APIREST_URL
+      const [register, setRegister] = useState(false)
+      const APIREST_URL = import.meta.env.VITE_APIREST_URL;
+      const route = window.location.href; 
+
+      useEffect(() => {
+
+            if (route.includes('register')) {
+
+                  setRegister(true);
+
+            } else {
+
+                  setRegister(false);
+            }
+
+
+      }, [route, register]);
 
       const sendData = async e => {
 
@@ -24,18 +45,44 @@ const Register = action => {
 
             try {
 
-                  const response = await axios.post(`${APIREST_URL}/create`, credenciales)
-                  const { userId, message, token } = response.data;
+                  if (register) {
 
-                  setTimeout(() => {
+                        const response = await axios.post(`${APIREST_URL}/create`, credenciales)
+                        const { userId, message, token } = response.data;
 
-                        Swal.fire('Success', message, 'success')
+                        localStorage.setItem('token', token);
+                        //localStorage.setItem('userId', userId);
+                        setUserId(userId);
+                        setToken(token);
+                        setAutenticado(true)
 
-                  }, 2000);
+                        setTimeout(() => {
 
-                  localStorage.setItem('token', token);
-                  localStorage.setItem('userId', userId);
-                  setAutenticado(true)
+                              Swal.fire('Success', message, 'success')
+
+                        }, 2000);
+
+
+                  } else {
+
+                        console.log('vamos a logearnos')
+                        console.log(credenciales)
+
+                        const response = await axios.post(`${APIREST_URL}/login`, credenciales)
+
+                        if (response.status === 200) {
+
+                              const { userId, token } = response.data;
+
+                              localStorage.setItem('token', token);
+                              //localStorage.setItem('userId', userId);
+                              setUserId(userId);
+                              setToken(token);
+                              setAutenticado(true)
+
+                        }
+
+                  }
 
             } catch (error) {
 
@@ -93,10 +140,10 @@ const Register = action => {
 
                         {
                               action.action === 'login'
-                              &&                               
+                              &&
                               <Link to="/register"><h3 className="hover:cursor-pointer hover:text-red-600">¿Aún no tienes cuenta?</h3></Link>
                         }
-                        
+
                   </form>
 
             </div>
